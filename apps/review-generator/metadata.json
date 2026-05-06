@@ -1,0 +1,5 @@
+{
+  "name": "Product Reviews Generator",
+  "description": "Generate randomized, authentic-looking product reviews in Hindi, English, and Hinglish with Indian names, locations, and balanced star ratings (4.1-4.9 aggregate). Features Excel-compatible copy-to-clipboard functionality.",
+  "requestFramePermissions": []
+}

@@ -1,0 +1,5 @@
+{
+  "name": "Product Description Generator",
+  "description": "Generate high-quality, 1000+ character product descriptions from URLs using Gemini AI.",
+  "requestFramePermissions": []
+}
