@@ -21,24 +21,29 @@ npm start
 
 Then open `http://localhost:3000`.
 
-## Environment Variables
+## Environment
 
-The product description app uses:
+All secrets and runtime settings are loaded from the root `.env` file by `server.mjs`.
+
+The combined app reads these `.env` variables:
 
 ```bash
-OPENROUTER_API_KEY=...
-# or
-OPENROUTER_API_KEYS=key1,key2
-OPENROUTER_MODEL=openai/gpt-4o-mini
+APP_URL=https://apps.hallstatt.co.in
+OPENROUTER_API_KEY=
+OPENROUTER_API_KEYS=
+OPENROUTER_SITE_NAME=ProductCopy AI
+OPENROUTER_SITE_URL=https://apps.hallstatt.co.in
+PRODUCT_OPENROUTER_MODEL=openai/gpt-4o-mini
+PRODUCT_OPENROUTER_FALLBACK_MODELS=
+PRODUCT_OPENAI_MODEL=openai/gpt-4o-mini
+PRODUCT_OPENROUTER_SITE_NAME=ProductCopy AI
+REVIEW_OPENROUTER_MODEL=openrouter/free
+REVIEW_OPENROUTER_FALLBACK_MODELS=
+OPENROUTER_MODEL=openrouter/free
 OPENROUTER_FALLBACK_MODELS=
-```
-
-The review generator uses:
-
-```bash
-OPENROUTER_API_KEY=...
 OPENAI_API_KEY=...
 OPENAI_MODEL=gpt-4o-mini
+PORT=
 ```
 
-Set `APP_URL=https://apps.hallstatt.co.in` in production.
+`OPENAI_API_KEY` is only required if the Review Generator uses the OpenAI provider.

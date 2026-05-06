@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -13,15 +14,17 @@ const productDist = path.join(__dirname, 'apps', 'product-description', 'dist');
 const reviewDist = path.join(__dirname, 'apps', 'review-generator', 'dist');
 
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
-const rawOpenAIModel = process.env.OPENAI_MODEL || '';
+const rawOpenAIModel = process.env.PRODUCT_OPENAI_MODEL || process.env.OPENAI_MODEL || '';
 const PRODUCT_OPENAI_MODEL = rawOpenAIModel
   ? rawOpenAIModel.includes('/')
     ? rawOpenAIModel
     : `openai/${rawOpenAIModel}`
   : '';
-const PRODUCT_OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || 'openai/gpt-4o-mini';
-const PRODUCT_OPENROUTER_FALLBACK_MODELS = process.env.OPENROUTER_FALLBACK_MODELS || '';
-const PRODUCT_OPENROUTER_SITE_NAME = process.env.OPENROUTER_SITE_NAME || 'ProductCopy AI';
+const PRODUCT_OPENROUTER_MODEL = process.env.PRODUCT_OPENROUTER_MODEL || 'openai/gpt-4o-mini';
+const PRODUCT_OPENROUTER_FALLBACK_MODELS =
+  process.env.PRODUCT_OPENROUTER_FALLBACK_MODELS || process.env.OPENROUTER_FALLBACK_MODELS || '';
+const PRODUCT_OPENROUTER_SITE_NAME =
+  process.env.PRODUCT_OPENROUTER_SITE_NAME || process.env.OPENROUTER_SITE_NAME || 'ProductCopy AI';
 const MAX_ROUTE_MODELS = 3;
 let nextProductKeyIndex = 0;
 
@@ -243,8 +246,13 @@ function getReviewProviderConfig(provider, origin) {
       throw new Error('Missing OPENROUTER_API_KEY in environment.');
     }
 
-    const configuredModel = process.env.OPENROUTER_MODEL || DEFAULT_REVIEW_OPENROUTER_MODEL;
-    const configuredFallbacks = (process.env.OPENROUTER_FALLBACK_MODELS || '')
+    const configuredModel =
+      process.env.REVIEW_OPENROUTER_MODEL || process.env.OPENROUTER_MODEL || DEFAULT_REVIEW_OPENROUTER_MODEL;
+    const configuredFallbacks = (
+      process.env.REVIEW_OPENROUTER_FALLBACK_MODELS ||
+      process.env.OPENROUTER_FALLBACK_MODELS ||
+      ''
+    )
       .split(',')
       .map((model) => model.trim())
       .filter(Boolean);
