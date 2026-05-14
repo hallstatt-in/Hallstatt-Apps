@@ -1,12 +1,12 @@
 import React, { useMemo, useState } from 'react';
-import { Plus, Trash2, Printer, Copy, RefreshCw } from 'lucide-react';
+import { Printer, RefreshCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Sticker } from './components/Sticker';
 import { StickerData, DEFAULT_STICKER } from './types';
 
 const SIZE_OPTIONS = {
   tops: ['S', 'M', 'L', 'XL', '2XL', '3XL'],
-  bottoms: ['30', '34', '36', '38', '40'],
+  bottoms: ['30', '32', '34', '36', '38', '40'],
 } as const;
 
 type ApparelType = keyof typeof SIZE_OPTIONS;
@@ -32,25 +32,8 @@ export default function App() {
     [selectedSizes, stickers]
   );
 
-  const addSticker = () => {
-    setStickers([...stickers, { ...DEFAULT_STICKER, id: crypto.randomUUID() }]);
-  };
-
-  const removeSticker = (id: string) => {
-    if (stickers.length > 1) {
-      setStickers(stickers.filter(s => s.id !== id));
-    }
-  };
-
   const updateSticker = (id: string, field: keyof StickerData, value: string) => {
     setStickers(stickers.map(s => s.id === id ? { ...s, [field]: value } : s));
-  };
-
-  const duplicateSticker = (id: string) => {
-    const sticker = stickers.find(s => s.id === id);
-    if (sticker) {
-      setStickers([...stickers, { ...sticker, id: crypto.randomUUID() }]);
-    }
   };
 
   const toggleSize = (size: string) => {
@@ -186,13 +169,6 @@ export default function App() {
           </div>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <button
-              onClick={addSticker}
-              className="flex w-full items-center justify-center gap-2 px-4 py-2 bg-white border border-[#e4e4e7] rounded-lg text-sm font-semibold hover:bg-[#fafafa] transition-colors shadow-sm sm:w-auto"
-            >
-              <Plus size={18} />
-              Add Sticker
-            </button>
-            <button
               onClick={printStickerImages}
               disabled={isPrinting || generatedStickers.length === 0}
               className="flex w-full items-center justify-center gap-2 px-6 py-2 bg-[#18181b] text-white rounded-lg text-sm font-semibold hover:bg-[#27272a] transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed sm:w-auto"
@@ -286,23 +262,6 @@ export default function App() {
               >
                 <div className="bg-[#fafafa] px-6 py-3 border-b border-[#e4e4e7] flex justify-between items-center">
                   <span className="text-xs font-bold uppercase tracking-wider text-[#a1a1aa]">Template #{index + 1}</span>
-                  <div className="flex items-center gap-2">
-                    <button 
-                      onClick={() => duplicateSticker(sticker.id)}
-                      className="p-1.5 text-[#a1a1aa] hover:text-[#52525b] transition-colors"
-                      title="Duplicate"
-                    >
-                      <Copy size={16} />
-                    </button>
-                    <button 
-                      onClick={() => removeSticker(sticker.id)}
-                      className="p-1.5 text-[#a1a1aa] hover:text-red-500 transition-colors"
-                      title="Remove"
-                      disabled={stickers.length === 1}
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
                 </div>
                 
                 <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -360,14 +319,6 @@ export default function App() {
               </motion.div>
             ))}
           </AnimatePresence>
-          
-          <button 
-            onClick={addSticker}
-            className="w-full py-8 border-2 border-dashed border-[#e4e4e7] rounded-2xl flex flex-col items-center justify-center gap-2 text-[#a1a1aa] hover:text-[#52525b] hover:border-[#d4d4d8] transition-all bg-white/50"
-          >
-            <Plus size={24} />
-            <span className="text-sm font-semibold">Add another sticker</span>
-          </button>
         </div>
 
         {/* Live Preview Sidebar */}
