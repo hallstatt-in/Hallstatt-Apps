@@ -2,35 +2,49 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import {
   BadgeIndianRupee,
+  Calculator,
   FileText,
   LockKeyhole,
   MessageSquareText,
   MoveUpRight,
+  Sparkles,
 } from 'lucide-react';
 import './styles.css';
 
 const apps = [
   {
     name: 'Pricing Sticker Generator',
-    description: 'Create Hallstatt product stickers with sizes, barcodes, MRP, and print-ready layouts.',
+    description: 'Create barcode-ready pricing labels, product variants, and print layouts.',
     href: '/sticker/',
-    label: 'Label operations',
+    label: 'Labels',
+    metric: 'Print desk',
     Icon: BadgeIndianRupee,
     accent: 'amber',
   },
   {
+    name: 'Pricing Calculator',
+    description: 'Model COGS, marketplace fees, CAC, returns, and target margins.',
+    href: '/pricing-calculator/',
+    label: 'Margins',
+    metric: 'COGS live',
+    Icon: Calculator,
+    accent: 'rose',
+  },
+  {
     name: 'Product Description Generator',
-    description: 'Generate polished ecommerce descriptions from product URLs for catalog and listing work.',
+    description: 'Turn product URLs into structured catalog copy for ecommerce listings.',
     href: '/product-description-generator/',
-    label: 'Catalog copy',
+    label: 'Copy',
+    metric: 'AI assist',
     Icon: FileText,
     accent: 'green',
   },
   {
     name: 'Review Generator',
-    description: 'Generate structured product reviews with language, location, and export controls.',
+    description: 'Generate exportable product reviews with language and location controls.',
     href: '/reviews-generator/',
-    label: 'Review export',
+    label: 'Reviews',
+    metric: 'Bulk export',
     Icon: MessageSquareText,
     accent: 'blue',
   },
@@ -44,32 +58,49 @@ function App() {
           <span className="brand-mark">H</span>
           <span>
             <span className="brand-name">Hallstatt</span>
-            <span className="brand-subtitle">Apps</span>
+            <span className="brand-subtitle">Operations suite</span>
           </span>
         </a>
         <div className="access-note">
           <LockKeyhole size={15} />
-          <span>Internal tools</span>
+          <span>Internal workspace</span>
         </div>
       </nav>
 
+      <section className="hero-panel" aria-labelledby="page-title">
+        <div>
+          <span className="eyebrow">
+            <Sparkles size={15} />
+            Active app console
+          </span>
+          <h1 id="page-title">One command center for Hallstatt ecommerce work.</h1>
+        </div>
+        <p>
+          Jump into pricing, stickers, catalog copy, and review workflows from a cleaner
+          operations dashboard built for daily use.
+        </p>
+      </section>
+
       <section className="app-grid" aria-label="Available apps">
-        {apps.map(({ name, description, href, label, Icon, accent }) => (
+        {apps.map(({ name, description, href, label, metric, Icon, accent }) => (
           <a className={`app-tile ${accent}`} href={href} key={name}>
             <span className="tile-top">
-              <span className="icon-wrap" aria-hidden="true">
-                <Icon size={27} strokeWidth={1.9} />
-              </span>
+              <span className="tile-label">{label}</span>
               <span className="open-icon" aria-hidden="true">
-                <MoveUpRight size={20} />
+                <MoveUpRight size={19} />
               </span>
             </span>
+            <span className="icon-wrap" aria-hidden="true">
+              <Icon size={28} strokeWidth={1.85} />
+            </span>
             <span className="tile-copy">
-              <span className="tile-label">{label}</span>
               <span className="tile-title">{name}</span>
               <span className="tile-description">{description}</span>
             </span>
-            <span className="tile-path">{href}</span>
+            <span className="tile-footer">
+              <span>{metric}</span>
+              <span>{href}</span>
+            </span>
           </a>
         ))}
       </section>

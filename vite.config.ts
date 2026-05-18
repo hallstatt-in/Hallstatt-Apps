@@ -7,6 +7,7 @@ const builtApps = [
   { base: '/sticker/', dir: 'apps/pricing-sticker/dist' },
   { base: '/product-description-generator/', dir: 'apps/product-description/dist' },
   { base: '/reviews-generator/', dir: 'apps/review-generator/dist' },
+  { base: '/pricing-calculator/', dir: 'apps/pricing-calculator/dist' },
 ];
 
 const contentTypes: Record<string, string> = {

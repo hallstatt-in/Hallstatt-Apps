@@ -1,10 +1,15 @@
 import 'dotenv/config';
+import crypto from 'crypto';
 import express from 'express';
+import multer from 'multer';
+import Papa from 'papaparse';
 import path from 'path';
+import pg from 'pg';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const { Pool } = pg;
 
 const app = express();
 const PORT = Number(process.env.PORT || 3000);
@@ -12,6 +17,18 @@ const rootDist = path.join(__dirname, 'dist', 'home');
 const pricingDist = path.join(__dirname, 'apps', 'pricing-sticker', 'dist');
 const productDist = path.join(__dirname, 'apps', 'product-description', 'dist');
 const reviewDist = path.join(__dirname, 'apps', 'review-generator', 'dist');
+const pricingCalculatorDist = path.join(__dirname, 'apps', 'pricing-calculator', 'dist');
+const upload = multer({ storage: multer.memoryStorage() });
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+});
+
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '9990019572Hh@';
+const ADMIN_SESSION_SECRET = process.env.ADMIN_SESSION_SECRET || 'hallstatt-local-admin-session';
+const ADMIN_SESSION_TOKEN = crypto
+  .createHash('sha256')
+  .update(`${ADMIN_PASSWORD}:${ADMIN_SESSION_SECRET}`)
+  .digest('hex');
 
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 const rawOpenAIModel = process.env.PRODUCT_OPENAI_MODEL || process.env.OPENAI_MODEL || '';
@@ -36,6 +53,33 @@ const DEFAULT_REVIEW_OPENROUTER_FALLBACK_MODELS = [
   'mistralai/mistral-7b-instruct:free',
   'google/gemma-2-9b-it:free',
 ];
+
+async function initializePricingCalculatorDatabase() {
+  if (!process.env.DATABASE_URL) {
+    console.warn('DATABASE_URL not found. Pricing calculator product lookup will return an empty list.');
+    return;
+  }
+
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS products (
+        sku TEXT PRIMARY KEY,
+        cogs NUMERIC NOT NULL,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+  } catch (error) {
+    console.error('Failed to initialize pricing calculator database:', error);
+  }
+}
+
+function isAdminAuthenticated(req) {
+  const cookieHeader = req.headers.cookie || '';
+  return cookieHeader
+    .split(';')
+    .map((cookie) => cookie.trim())
+    .some((cookie) => cookie === `hallstatt_admin=${ADMIN_SESSION_TOKEN}`);
+}
 
 function getProductApiKeys() {
   const rawKeys = process.env.OPENROUTER_API_KEYS || process.env.OPENROUTER_API_KEY || '';
@@ -398,6 +442,157 @@ app.post('/api/generate-reviews', async (req, res) => {
   }
 });
 
+app.get('/api/admin/session', (req, res) => {
+  res.json({ authenticated: isAdminAuthenticated(req) });
+});
+
+app.post('/api/admin/login', (req, res) => {
+  const { password } = req.body || {};
+  const submittedPassword = typeof password === 'string' ? password.trim() : '';
+
+  if (!ADMIN_PASSWORD) {
+    return res.status(500).json({ error: 'Admin credentials are not configured' });
+  }
+
+  if (submittedPassword !== ADMIN_PASSWORD.trim()) {
+    return res.status(401).json({ error: 'Invalid admin credentials' });
+  }
+
+  const secureCookie = process.env.NODE_ENV === 'production' ? '; Secure' : '';
+  res.setHeader(
+    'Set-Cookie',
+    `hallstatt_admin=${ADMIN_SESSION_TOKEN}; HttpOnly; SameSite=Strict; Path=/; Max-Age=86400${secureCookie}`,
+  );
+  res.json({ authenticated: true });
+});
+
+app.post('/api/upload-cogs', upload.single('file'), async (req, res) => {
+  if (!isAdminAuthenticated(req)) {
+    return res.status(401).json({ error: 'Admin login required' });
+  }
+
+  if (!req.file) {
+    return res.status(400).json({ error: 'No file uploaded' });
+  }
+
+  if (!process.env.DATABASE_URL) {
+    return res.status(500).json({ error: 'Database not configured. Please set DATABASE_URL.' });
+  }
+
+  const fileContent = req.file.buffer.toString('utf8');
+
+  Papa.parse(fileContent, {
+    header: true,
+    dynamicTyping: true,
+    skipEmptyLines: true,
+    complete: async (results) => {
+      const parsedProducts = results.data
+        .filter((row) => row && row.sku && typeof row.cogs === 'number')
+        .map((row) => ({
+          sku: String(row.sku),
+          cogs: Number(row.cogs),
+        }));
+
+      if (parsedProducts.length === 0) {
+        return res.status(400).json({ error: "No valid product data found in CSV. Ensure columns 'sku' and 'cogs' exist." });
+      }
+
+      try {
+        const client = await pool.connect();
+        try {
+          await client.query('BEGIN');
+          for (const product of parsedProducts) {
+            await client.query(
+              `INSERT INTO products (sku, cogs, updated_at)
+               VALUES ($1, $2, CURRENT_TIMESTAMP)
+               ON CONFLICT (sku)
+               DO UPDATE SET cogs = EXCLUDED.cogs, updated_at = CURRENT_TIMESTAMP`,
+              [product.sku, product.cogs],
+            );
+          }
+          await client.query('COMMIT');
+          res.json({
+            message: `Successfully synced ${parsedProducts.length} products to database`,
+            count: parsedProducts.length,
+          });
+        } catch (error) {
+          await client.query('ROLLBACK');
+          throw error;
+        } finally {
+          client.release();
+        }
+      } catch (error) {
+        console.error('Database upload error:', error);
+        res.status(500).json({
+          error: `Failed to save products to database: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        });
+      }
+    },
+    error: (error) => {
+      res.status(500).json({ error: `Failed to parse CSV: ${error.message}` });
+    },
+  });
+});
+
+app.get('/api/products', async (_req, res) => {
+  if (!process.env.DATABASE_URL) {
+    return res.json([]);
+  }
+
+  try {
+    const result = await pool.query('SELECT sku, cogs FROM products ORDER BY sku ASC');
+    const data = result.rows.map((row) => ({
+      sku: row.sku,
+      cogs: parseFloat(row.cogs),
+    }));
+    res.json(data);
+  } catch (error) {
+    console.error('Database fetch error:', error);
+    res.status(500).json({ error: 'Failed to fetch products' });
+  }
+});
+
+app.put('/api/products/:sku', async (req, res) => {
+  if (!isAdminAuthenticated(req)) {
+    return res.status(401).json({ error: 'Admin login required' });
+  }
+
+  if (!process.env.DATABASE_URL) {
+    return res.status(500).json({ error: 'Database not configured. Please set DATABASE_URL.' });
+  }
+
+  const sku = req.params.sku;
+  const cogs = Number(req.body?.cogs);
+
+  if (!sku) {
+    return res.status(400).json({ error: 'SKU is required.' });
+  }
+
+  if (!Number.isFinite(cogs) || cogs < 0) {
+    return res.status(400).json({ error: 'A valid COGS value is required.' });
+  }
+
+  try {
+    const result = await pool.query(
+      `UPDATE products
+       SET cogs = $1, updated_at = CURRENT_TIMESTAMP
+       WHERE sku = $2
+       RETURNING sku, cogs`,
+      [cogs, sku],
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: 'SKU not found.' });
+    }
+
+    const row = result.rows[0];
+    res.json({ product: { sku: row.sku, cogs: parseFloat(row.cogs) } });
+  } catch (error) {
+    console.error('Database update error:', error);
+    res.status(500).json({ error: 'Failed to update product COGS' });
+  }
+});
+
 function serveSpa(basePath, directory) {
   app.use(basePath, express.static(directory, { extensions: ['html'] }));
   app.use(basePath, (_req, res) => {
@@ -408,11 +603,14 @@ function serveSpa(basePath, directory) {
 serveSpa('/sticker', pricingDist);
 serveSpa('/product-description-generator', productDist);
 serveSpa('/reviews-generator', reviewDist);
+serveSpa('/pricing-calculator', pricingCalculatorDist);
 
 app.use(express.static(rootDist, { extensions: ['html'] }));
 app.use((_req, res) => {
   res.sendFile(path.join(rootDist, 'index.html'));
 });
+
+await initializePricingCalculatorDatabase();
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Hallstatt Apps listening on http://0.0.0.0:${PORT}`);
